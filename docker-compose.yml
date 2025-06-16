@@ -1,0 +1,66 @@
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+
+  planner:
+    build: ./backend
+    ports:
+      - "8100:8000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    command: uvicorn services.planner.main:app --host 0.0.0.0 --port 8000
+
+  compiler:
+    build: ./backend
+    ports:
+      - "8101:8000"
+    environment:
+      - REDIS_URL=${REDIS_URL}
+    command: uvicorn services.compiler.compiler:app --host 0.0.0.0 --port 8000
+
+  runner:
+    build: ./backend
+    ports:
+      - "8102:8000"
+    environment:
+      - REDIS_URL=${REDIS_URL}
+    command: uvicorn runner.main:app --host 0.0.0.0 --port 8000
+
+  connector_gen:
+    build: ./backend
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    command: python -m connector_gen.main
+
+  novelty:
+    build: ./backend
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - CHROMA_PATH=${CHROMA_PATH}
+    command: python -m novelty.novelty
+
+  synthesis:
+    build: ./backend
+    ports:
+      - "8103:8000"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    command: uvicorn synthesis.main:app --host 0.0.0.0 --port 8000
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - planner
+      - runner
